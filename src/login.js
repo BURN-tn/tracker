@@ -1,22 +1,37 @@
 // App.js
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
-// Fix default icon issue with leaflet in React
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// Chart.js registration
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+// Login component (same as before)
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -68,11 +83,11 @@ function Login({ onLogin }) {
   );
 }
 
-function Dashboard({ username }) {
-  const [emergencyContact, setEmergencyContact] = useState('');
-  const [position, setPosition] = React.useState(null);
+// Dashboard component
+function Dashboard({ username, emergencyContact, onAddContactClick }) {
+  const [position, setPosition] = useState(null);
 
-  // Simulated data for charts
+  // Sample chart data
   const sugarData = {
     labels: ['9 AM', '12 PM', '3 PM', '6 PM', '9 PM'],
     datasets: [
@@ -99,7 +114,8 @@ function Dashboard({ username }) {
     ],
   };
 
-  React.useEffect(() => {
+  // Get user location via GPS
+  useEffect(() => {
     if (!navigator.geolocation) {
       alert('Geolocation not supported by your browser');
       return;
@@ -117,12 +133,10 @@ function Dashboard({ username }) {
     return () => navigator.geolocation.clearWatch(watcher);
   }, []);
 
-  const handleAddContact = () => {
-    if (emergencyContact.trim() !== '') {
-      alert(`Emergency contact "${emergencyContact}" added!`);
-      setEmergencyContact('');
-    }
-  };
+  // Google Maps Embed URL with coordinates
+  const googleMapsUrl = position
+    ? `https://maps.google.com/maps?q=${position[0]},${position[1]}&z=15&output=embed`
+    : null;
 
   return (
     <div style={{ padding: 20, fontFamily: 'Arial, sans-serif' }}>
@@ -155,33 +169,34 @@ function Dashboard({ username }) {
 
       {/* Emergency Contact */}
       <section style={{ marginTop: 40 }}>
-        <h3>Add Emergency Contact</h3>
-        <input
-          type="text"
-          placeholder="Enter contact name or phone"
-          value={emergencyContact}
-          onChange={(e) => setEmergencyContact(e.target.value)}
-          style={{ padding: 10, width: 300, marginRight: 10 }}
-        />
-        <button onClick={handleAddContact} style={styles.button}>
-          Add Contact
+        <h3>Emergency Contact</h3>
+        {emergencyContact ? (
+          <div style={{ marginBottom: 10 }}>
+            <strong>Name:</strong> {emergencyContact.name} <br />
+            <strong>Phone/Email:</strong> {emergencyContact.contact}
+          </div>
+        ) : (
+          <p>No emergency contact added yet.</p>
+        )}
+        <button onClick={onAddContactClick} style={styles.button}>
+          {emergencyContact ? 'Edit Emergency Contact' : 'Add Emergency Contact'}
         </button>
       </section>
 
-      {/* Map */}
+      {/* Google Map */}
       <section style={{ marginTop: 40 }}>
         <h3>Your Current Location</h3>
         {position ? (
-          <MapContainer
-            center={position}
-            zoom={13}
-            style={{ height: 300, width: '100%', maxWidth: 700 }}
-          >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={position}>
-              <Popup>You are here</Popup>
-            </Marker>
-          </MapContainer>
+          <iframe
+            title="google-map"
+            src={googleMapsUrl}
+            width="100%"
+            height="300"
+            style={{ border: 0, maxWidth: 700 }}
+            allowFullScreen=""
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          ></iframe>
         ) : (
           <p>Loading location...</p>
         )}
@@ -190,8 +205,62 @@ function Dashboard({ username }) {
   );
 }
 
+// Emergency Contact Form
+function EmergencyContactForm({ emergencyContact, onSaveContact }) {
+  const [name, setName] = useState(emergencyContact?.name || '');
+  const [contact, setContact] = useState(emergencyContact?.contact || '');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name.trim() || !contact.trim()) {
+      setError('Please fill in all fields');
+      return;
+    }
+    onSaveContact({ name: name.trim(), contact: contact.trim() });
+    navigate('/dashboard');
+  };
+
+  return (
+    <div style={styles.background}>
+      <div style={styles.formContainer}>
+        <h2 style={{ textAlign: 'center' }}>Emergency Contact</h2>
+        <form onSubmit={handleSubmit}>
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          <div style={{ marginBottom: 15 }}>
+            <label>Name:</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={styles.input}
+              required
+            />
+          </div>
+          <div style={{ marginBottom: 15 }}>
+            <label>Phone or Email:</label>
+            <input
+              type="text"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              style={styles.input}
+              required
+            />
+          </div>
+          <button type="submit" style={styles.button}>
+            Save Contact
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Main App
 function App() {
   const [user, setUser] = useState(null);
+  const [emergencyContact, setEmergencyContact] = useState(null);
 
   return (
     <Router>
@@ -202,7 +271,30 @@ function App() {
         />
         <Route
           path="/dashboard"
-          element={user ? <Dashboard username={user} /> : <Navigate to="/" />}
+          element={
+            user ? (
+              <Dashboard
+                username={user}
+                emergencyContact={emergencyContact}
+                onAddContactClick={() => window.history.pushState({}, '', '/emergency-contact')}
+              />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+        <Route
+          path="/emergency-contact"
+          element={
+            user ? (
+              <EmergencyContactForm
+                emergencyContact={emergencyContact}
+                onSaveContact={setEmergencyContact}
+              />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
         />
       </Routes>
     </Router>
@@ -221,7 +313,7 @@ const styles = {
     backgroundPosition: 'center',
   },
   formContainer: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     padding: 30,
     borderRadius: 8,
     width: '350px',
